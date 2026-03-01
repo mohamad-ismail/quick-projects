@@ -1,0 +1,21 @@
+{
+  "name": "PrepNotes — Waymo Interview",
+  "short_name": "PrepNotes",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0d0f17",
+  "theme_color": "#6c63ff",
+  "description": "Offline Interview Prep Notes app — Waymo Test Engineer",
+  "icons": [
+    {
+      "src": "https://via.placeholder.com/192x192/6c63ff/ffffff?text=PN",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://via.placeholder.com/512x512/6c63ff/ffffff?text=PN",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

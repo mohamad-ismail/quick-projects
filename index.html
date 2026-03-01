@@ -1,0 +1,1518 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>FleetLog — Testing Time Tracker</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@600;700&display=swap"
+    rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0
+    }
+
+    :root {
+      --bg: #060810;
+      --s1: #0a0d18;
+      --s2: #0f1220;
+      --s3: #151928;
+      --s4: #1b2030;
+      --s5: #222840;
+      --border: rgba(255, 255, 255, .07);
+      --bh: rgba(255, 255, 255, .13);
+      --text: #dce4ff;
+      --muted: #4e5880;
+      --green: #22c55e;
+      --red: #ef4444;
+      --amber: #f59e0b;
+      --blue: #60a5fa;
+      --purple: #a78bfa;
+      --r: 14px;
+      --r2: 10px;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      max-width: 480px;
+      margin: 0 auto;
+      padding-bottom: 80px
+    }
+
+    ::-webkit-scrollbar {
+      width: 3px
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--s4)
+    }
+
+    button {
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      border: none;
+      outline: none
+    }
+
+    select,
+    input,
+    textarea {
+      font-family: 'Inter', sans-serif;
+      outline: none
+    }
+
+    /* NAV */
+    .nav {
+      background: rgba(6, 8, 16, .95);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(20px)
+    }
+
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      height: 52px;
+      gap: 4px
+    }
+
+    .brand {
+      font-size: 1rem;
+      font-weight: 800;
+      margin-right: auto;
+      display: flex;
+      align-items: center;
+      gap: 7px
+    }
+
+    .bmark {
+      width: 28px;
+      height: 28px;
+      background: linear-gradient(135deg, #ef4444, #f59e0b);
+      border-radius: 7px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px
+    }
+
+    .ntab {
+      padding: 0 10px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: .75rem;
+      font-weight: 600;
+      color: var(--muted);
+      border-bottom: 2px solid transparent;
+      background: none;
+      transition: all .15s;
+      white-space: nowrap
+    }
+
+    .ntab:hover {
+      color: var(--text)
+    }
+
+    .ntab.active {
+      color: var(--text);
+      border-bottom-color: var(--green)
+    }
+
+    /* PAGES */
+    .page {
+      display: none;
+      padding: 16px
+    }
+
+    .page.active {
+      display: block
+    }
+
+    /* VEHICLE BAR */
+    .vbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--s2);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 10px 14px;
+      margin-bottom: 16px
+    }
+
+    .vbar select {
+      background: none;
+      border: none;
+      color: var(--text);
+      font-size: .85rem;
+      font-weight: 700;
+      flex: 1;
+      cursor: pointer
+    }
+
+    .session-lbl {
+      font-size: .7rem;
+      color: var(--muted);
+      white-space: nowrap
+    }
+
+    /* STAGE BAR */
+    .stage-bar {
+      display: flex;
+      gap: 3px;
+      margin-bottom: 20px
+    }
+
+    .stage {
+      flex: 1;
+      border-radius: 6px;
+      padding: 6px 4px;
+      text-align: center;
+      font-size: .62rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+      border: 1px solid var(--border);
+      background: var(--s2);
+      color: var(--muted);
+      transition: all .25s;
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis
+    }
+
+    .stage.done {
+      background: rgba(34, 197, 94, .1);
+      border-color: rgba(34, 197, 94, .3);
+      color: var(--green)
+    }
+
+    .stage.active {
+      background: rgba(34, 197, 94, .15);
+      border-color: rgba(34, 197, 94, .5);
+      color: var(--green);
+      box-shadow: 0 0 12px rgba(34, 197, 94, .2)
+    }
+
+    .stage-time {
+      display: block;
+      font-size: .6rem;
+      font-weight: 500;
+      margin-top: 2px;
+      opacity: .8;
+      font-family: 'JetBrains Mono', monospace
+    }
+
+    /* STOPWATCH */
+    .sw-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 24px;
+      position: relative
+    }
+
+    .sw-svg {
+      width: 230px;
+      height: 230px
+    }
+
+    .sw-track {
+      fill: none;
+      stroke: var(--s3);
+      stroke-width: 12
+    }
+
+    .sw-arc {
+      fill: none;
+      stroke-width: 12;
+      stroke-linecap: round;
+      transition: stroke-dashoffset .1s linear;
+      transform-origin: center;
+      transform: rotate(-90deg)
+    }
+
+    .sw-arc.running {
+      stroke: var(--green);
+      filter: drop-shadow(0 0 8px rgba(34, 197, 94, .5))
+    }
+
+    .sw-arc.paused {
+      stroke: var(--red);
+      filter: drop-shadow(0 0 6px rgba(239, 68, 68, .4))
+    }
+
+    .sw-arc.idle {
+      stroke: var(--s4)
+    }
+
+    .sw-center {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      pointer-events: none
+    }
+
+    .sw-time {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 2.4rem;
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: -2px
+    }
+
+    .sw-time.running {
+      color: var(--green)
+    }
+
+    .sw-time.paused {
+      color: var(--red)
+    }
+
+    .sw-label {
+      font-size: .62rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      color: var(--muted);
+      margin-top: 4px
+    }
+
+    .sw-lost {
+      font-size: .72rem;
+      color: var(--red);
+      font-weight: 600;
+      margin-top: 2px
+    }
+
+    /* STAGE STATUS */
+    .stage-status {
+      font-size: .78rem;
+      color: var(--muted);
+      font-weight: 600;
+      margin-bottom: 16px;
+      text-align: center;
+      min-height: 20px
+    }
+
+    /* MAIN BUTTON */
+    .main-btn {
+      width: 100%;
+      padding: 18px;
+      border-radius: var(--r);
+      font-size: 1rem;
+      font-weight: 800;
+      letter-spacing: .3px;
+      transition: all .2s
+    }
+
+    .btn-start {
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      color: #fff;
+      box-shadow: 0 4px 24px rgba(34, 197, 94, .4)
+    }
+
+    .btn-start:hover {
+      filter: brightness(1.08);
+      transform: translateY(-1px)
+    }
+
+    .btn-stop {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      color: #fff;
+      box-shadow: 0 4px 24px rgba(239, 68, 68, .4);
+      animation: pulse-btn 2s ease-in-out infinite
+    }
+
+    @keyframes pulse-btn {
+
+      0%,
+      100% {
+        box-shadow: 0 4px 24px rgba(239, 68, 68, .4)
+      }
+
+      50% {
+        box-shadow: 0 4px 36px rgba(239, 68, 68, .7)
+      }
+    }
+
+    .btn-resume {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: #fff;
+      box-shadow: 0 4px 20px rgba(245, 158, 11, .35)
+    }
+
+    .btn-resume:hover {
+      filter: brightness(1.1)
+    }
+
+    .btn-next {
+      background: var(--s3);
+      border: 1px solid var(--border);
+      color: var(--text);
+      width: 100%;
+      padding: 12px;
+      border-radius: var(--r);
+      font-size: .85rem;
+      font-weight: 700;
+      margin-top: 8px
+    }
+
+    .btn-next:hover {
+      background: var(--s4);
+      border-color: var(--bh)
+    }
+
+    /* STATS ROW */
+    .stats-mini {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin-top: 16px
+    }
+
+    .sm-stat {
+      background: var(--s2);
+      border: 1px solid var(--border);
+      border-radius: var(--r2);
+      padding: 10px 12px;
+      text-align: center
+    }
+
+    .sm-n {
+      font-size: 1.1rem;
+      font-weight: 800;
+      font-family: 'JetBrains Mono', monospace;
+      line-height: 1
+    }
+
+    .sm-l {
+      font-size: .6rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      color: var(--muted);
+      margin-top: 3px
+    }
+
+    /* INTERRUPTION CARD */
+    .int-card {
+      background: rgba(239, 68, 68, .08);
+      border: 1px solid rgba(239, 68, 68, .25);
+      border-radius: var(--r);
+      padding: 12px 14px;
+      margin-top: 12px;
+      display: none
+    }
+
+    .int-card.visible {
+      display: block
+    }
+
+    .int-card-top {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px
+    }
+
+    .int-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--red);
+      animation: pulse-dot 1.5s ease-in-out infinite;
+      flex-shrink: 0
+    }
+
+    @keyframes pulse-dot {
+
+      0%,
+      100% {
+        opacity: 1
+      }
+
+      50% {
+        opacity: .4
+      }
+    }
+
+    .int-cause {
+      font-size: .85rem;
+      font-weight: 700;
+      color: var(--red)
+    }
+
+    .int-timer {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .8rem;
+      color: var(--red);
+      margin-left: auto
+    }
+
+    .int-note {
+      font-size: .73rem;
+      color: var(--muted)
+    }
+
+    /* GENERAL BUTTONS */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 7px 13px;
+      border-radius: var(--r2);
+      font-size: .78rem;
+      font-weight: 600;
+      transition: all .15s
+    }
+
+    .btn-ghost {
+      background: var(--s3);
+      border: 1px solid var(--border);
+      color: var(--text)
+    }
+
+    .btn-ghost:hover {
+      border-color: var(--bh);
+      background: var(--s4)
+    }
+
+    .btn-sm {
+      padding: 5px 10px;
+      font-size: .72rem
+    }
+
+    /* MODAL / SHEET */
+    .ov {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .7);
+      backdrop-filter: blur(10px);
+      z-index: 500;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s
+    }
+
+    .ov.open {
+      opacity: 1;
+      pointer-events: all
+    }
+
+    .sheet {
+      background: var(--s1);
+      border: 1px solid var(--border);
+      border-radius: 22px 22px 0 0;
+      width: 100%;
+      max-width: 480px;
+      padding: 20px;
+      transform: translateY(100%);
+      transition: transform .3s cubic-bezier(.32, .72, 0, 1);
+      max-height: 80vh;
+      overflow-y: auto
+    }
+
+    .ov.open .sheet {
+      transform: translateY(0)
+    }
+
+    .sheet-hdr {
+      text-align: center;
+      margin-bottom: 18px
+    }
+
+    .sheet-title {
+      font-size: 1rem;
+      font-weight: 800
+    }
+
+    .sheet-sub {
+      font-size: .78rem;
+      color: var(--muted);
+      margin-top: 3px
+    }
+
+    .cause-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 14px
+    }
+
+    .cause-btn {
+      padding: 12px 10px;
+      background: var(--s3);
+      border: 1px solid var(--border);
+      border-radius: var(--r2);
+      font-size: .8rem;
+      font-weight: 600;
+      color: var(--text);
+      transition: all .15s;
+      display: flex;
+      align-items: center;
+      gap: 6px
+    }
+
+    .cause-btn:hover {
+      border-color: var(--bh);
+      background: var(--s4)
+    }
+
+    .cause-btn.selected {
+      background: rgba(239, 68, 68, .12);
+      border-color: rgba(239, 68, 68, .4);
+      color: var(--red)
+    }
+
+    .fld {
+      margin-bottom: 12px
+    }
+
+    .fld label {
+      display: block;
+      font-size: .7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      color: var(--muted);
+      margin-bottom: 5px
+    }
+
+    .fld textarea {
+      background: var(--s3);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 9px 12px;
+      border-radius: var(--r2);
+      font-size: .83rem;
+      width: 100%;
+      min-height: 60px;
+      resize: none
+    }
+
+    .fld textarea:focus {
+      border-color: rgba(239, 68, 68, .4)
+    }
+
+    /* LOG PAGE */
+    .log-item {
+      background: var(--s2);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 12px 14px;
+      margin-bottom: 8px
+    }
+
+    .log-hdr {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px
+    }
+
+    .log-vehicle {
+      font-size: .8rem;
+      font-weight: 700
+    }
+
+    .log-date {
+      font-size: .7rem;
+      color: var(--muted)
+    }
+
+    .log-stages {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      margin-bottom: 8px
+    }
+
+    .log-stage-pill {
+      font-size: .65rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 20px;
+      background: var(--s3);
+      border: 1px solid var(--border)
+    }
+
+    .interruptions {
+      margin-top: 6px;
+      border-top: 1px solid var(--border);
+      padding-top: 6px
+    }
+
+    .int-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: .73rem;
+      padding: 3px 0
+    }
+
+    .int-dot2 {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0
+    }
+
+    .badge {
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: .65rem;
+      font-weight: 700
+    }
+
+    .badge-eff {
+      background: rgba(34, 197, 94, .1);
+      color: var(--green);
+      border: 1px solid rgba(34, 197, 94, .2)
+    }
+
+    .badge-warn {
+      background: rgba(245, 158, 11, .1);
+      color: var(--amber);
+      border: 1px solid rgba(245, 158, 11, .2)
+    }
+
+    .badge-bad {
+      background: rgba(239, 68, 68, .1);
+      color: var(--red);
+      border: 1px solid rgba(239, 68, 68, .2)
+    }
+
+    /* PARETO */
+    .chart-wrap {
+      background: var(--s2);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 14px;
+      margin-bottom: 12px
+    }
+
+    .chart-title {
+      font-size: .82rem;
+      font-weight: 700;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between
+    }
+
+    .pareto-canvas {
+      height: 220px
+    }
+
+    .eff-banner {
+      background: linear-gradient(135deg, rgba(34, 197, 94, .1), rgba(22, 163, 74, .05));
+      border: 1px solid rgba(34, 197, 94, .2);
+      border-radius: var(--r);
+      padding: 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px
+    }
+
+    .eff-n {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--green);
+      line-height: 1
+    }
+
+    .eff-l {
+      font-size: .7rem;
+      color: var(--muted);
+      font-weight: 600
+    }
+
+    .eff-sub {
+      font-size: .78rem;
+      color: var(--text);
+      margin-top: 2px
+    }
+
+    .p-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, .04)
+    }
+
+    .p-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      flex-shrink: 0
+    }
+
+    .p-name {
+      font-size: .8rem;
+      flex: 1
+    }
+
+    .p-dur {
+      font-size: .78rem;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      min-width: 48px;
+      text-align: right
+    }
+
+    .p-pct {
+      font-size: .7rem;
+      color: var(--muted);
+      min-width: 30px;
+      text-align: right
+    }
+
+    /* SETTINGS */
+    .card {
+      background: var(--s2);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      overflow: hidden;
+      margin-bottom: 12px
+    }
+
+    .card-hdr {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: .82rem;
+      font-weight: 700
+    }
+
+    .card-body {
+      padding: 14px
+    }
+
+    .cause-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, .04)
+    }
+
+    .cause-item:last-child {
+      border-bottom: none
+    }
+
+    /* FLEET PAGE */
+    .fleet-card {
+      background: var(--s2);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 14px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 12px
+    }
+
+    .fleet-ico {
+      font-size: 1.6rem
+    }
+
+    .fleet-info {
+      flex: 1
+    }
+
+    .fleet-name {
+      font-size: .88rem;
+      font-weight: 700
+    }
+
+    .fleet-meta {
+      font-size: .72rem;
+      color: var(--muted);
+      margin-top: 2px
+    }
+
+    .fleet-actions {
+      display: flex;
+      gap: 5px
+    }
+
+    /* EMPTY */
+    .empty {
+      padding: 40px 20px;
+      text-align: center;
+      color: var(--muted)
+    }
+
+    .empty-ico {
+      font-size: 2.5rem;
+      margin-bottom: 8px
+    }
+
+    .empty-ttl {
+      font-size: .88rem;
+      font-weight: 700;
+      color: var(--text)
+    }
+
+    .empty-sub {
+      font-size: .78rem;
+      margin-top: 4px;
+      line-height: 1.5
+    }
+
+    /* TOAST */
+    .toast-wrap {
+      position: fixed;
+      top: 60px;
+      right: 12px;
+      z-index: 999;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      pointer-events: none
+    }
+
+    .toast {
+      background: var(--s3);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 9px 13px;
+      font-size: .78rem;
+      font-weight: 600;
+      animation: tin .25s ease;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, .6)
+    }
+
+    @keyframes tin {
+      from {
+        opacity: 0;
+        transform: translateX(16px)
+      }
+
+      to {
+        opacity: 1;
+        transform: translateX(0)
+      }
+    }
+
+    .filter-row {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px;
+      flex-wrap: wrap
+    }
+
+    .fsel {
+      background: var(--s2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 10px;
+      border-radius: var(--r2);
+      font-size: .76rem
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- NAV -->
+  <nav class="nav">
+    <div class="nav-inner">
+      <div class="brand">
+        <div class="bmark">⚡</div>FleetLog
+      </div>
+      <button class="ntab active" onclick="go('track',this)">⏱ Track</button>
+      <button class="ntab" onclick="go('pareto',this)">📈 Pareto</button>
+      <button class="ntab" onclick="go('log',this)">📋 Log</button>
+      <button class="ntab" onclick="go('fleet',this)">🚗 Fleet</button>
+      <button class="ntab" onclick="go('settings',this)">⚙️</button>
+    </div>
+  </nav>
+
+  <!-- ① TRACK -->
+  <div class="page active" id="page-track">
+    <div class="vbar">
+      <span style="font-size:1.1rem">🚗</span>
+      <select id="vehicleSel" onchange="onVehicleChange()"></select>
+      <span class="session-lbl" id="sessionLbl">No session</span>
+    </div>
+
+    <!-- STAGE BAR -->
+    <div class="stage-bar" id="stageBar"></div>
+
+    <!-- STATUS -->
+    <div class="stage-status" id="stageStatus">Select a vehicle to begin</div>
+
+    <!-- STOPWATCH -->
+    <div class="sw-wrap">
+      <svg class="sw-svg" viewBox="0 0 230 230">
+        <circle class="sw-track" cx="115" cy="115" r="100" />
+        <circle class="sw-arc idle" id="swArc" cx="115" cy="115" r="100" stroke-dasharray="628"
+          stroke-dashoffset="628" />
+      </svg>
+      <div class="sw-center">
+        <div class="sw-time idle" id="swTime">00:00:00</div>
+        <div class="sw-label">Testing Time Active</div>
+        <div class="sw-lost" id="swLost" style="display:none"></div>
+      </div>
+    </div>
+
+    <!-- INTERRUPTION LIVE CARD -->
+    <div class="int-card" id="intCard">
+      <div class="int-card-top">
+        <span class="int-dot"></span>
+        <span class="int-cause" id="intCause">—</span>
+        <span class="int-timer" id="intTimer">00:00</span>
+      </div>
+      <div class="int-note" id="intNote"></div>
+    </div>
+
+    <!-- BUTTONS -->
+    <button class="main-btn btn-start" id="mainBtn" onclick="mainAction()" style="margin-top:12px">▶ Start
+      Session</button>
+    <button class="btn-next" id="nextBtn" onclick="nextStage()" style="display:none">Next Stage →</button>
+
+    <!-- MINI STATS -->
+    <div class="stats-mini" id="statsMini">
+      <div class="sm-stat">
+        <div class="sm-n" id="sActive" style="color:var(--green)">—</div>
+        <div class="sm-l">Active</div>
+      </div>
+      <div class="sm-stat">
+        <div class="sm-n" id="sLost" style="color:var(--red)">—</div>
+        <div class="sm-l">Lost</div>
+      </div>
+      <div class="sm-stat">
+        <div class="sm-n" id="sInts" style="color:var(--amber)">—</div>
+        <div class="sm-l">Interruptions</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ② PARETO -->
+  <div class="page" id="page-pareto">
+    <div class="filter-row">
+      <select class="fsel" id="pDateF" onchange="renderPareto()">
+        <option value="7">Last 7 days</option>
+        <option value="30" selected>Last 30 days</option>
+        <option value="all">All time</option>
+      </select>
+      <select class="fsel" id="pVehicleF" onchange="renderPareto()">
+        <option value="">All Vehicles</option>
+      </select>
+    </div>
+    <div class="eff-banner" id="effBanner">
+      <div>
+        <div class="eff-n" id="effPct">—</div>
+        <div class="eff-l">Testing Efficiency</div>
+      </div>
+      <div style="flex:1">
+        <div class="eff-sub" id="effSub">—</div>
+      </div>
+    </div>
+    <div class="chart-wrap">
+      <div class="chart-title">⏱ Downtime by Cause <span id="paretoTotal"
+          style="font-size:.7rem;color:var(--muted)"></span></div>
+      <div class="pareto-canvas"><canvas id="paretoChart"></canvas></div>
+    </div>
+    <div id="paretoRows"></div>
+  </div>
+
+  <!-- ③ LOG -->
+  <div class="page" id="page-log">
+    <div class="filter-row">
+      <select class="fsel" id="logVF" onchange="renderLog()">
+        <option value="">All Vehicles</option>
+      </select>
+      <button class="btn btn-ghost btn-sm" onclick="exportCSV()">↓ CSV</button>
+    </div>
+    <div id="logList"></div>
+  </div>
+
+  <!-- ④ FLEET -->
+  <div class="page" id="page-fleet">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+      <button class="btn btn-ghost" onclick="openFleetSheet()">+ Add Vehicle</button>
+    </div>
+    <div id="fleetList"></div>
+  </div>
+
+  <!-- ⑤ SETTINGS -->
+  <div class="page" id="page-settings">
+    <div class="card">
+      <div class="card-hdr">🏷 Interruption Causes <button class="btn btn-ghost btn-sm" onclick="openCauseSheet()">+
+          Add</button></div>
+      <div class="card-body">
+        <div id="causeList"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hdr">⚙️ Data</div>
+      <div class="card-body" style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="exportJSON()">📤 Export</button>
+        <button class="btn btn-ghost btn-sm" onclick="importJSON()">📥 Import</button>
+        <button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="clearAll()">🗑 Clear All</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STOP SHEET -->
+  <div class="ov" id="stopOv" onclick="onOvClick(event,'stopOv')">
+    <div class="sheet">
+      <div class="sheet-hdr">
+        <div class="sheet-title">What interrupted testing?</div>
+        <div class="sheet-sub">Select cause to log this downtime</div>
+      </div>
+      <div class="cause-grid" id="causeGrid"></div>
+      <div class="fld">
+        <label>Notes (optional)</label>
+        <textarea id="stopNote" placeholder="Brief description…" rows="2"></textarea>
+      </div>
+      <button class="main-btn btn-resume" onclick="confirmStop()">Log & Resume ▶</button>
+    </div>
+  </div>
+
+  <!-- FLEET SHEET -->
+  <div class="ov" id="fleetOv" onclick="onOvClick(event,'fleetOv')">
+    <div class="sheet">
+      <div class="sheet-hdr">
+        <div class="sheet-title" id="fleetSheetTitle">Add Vehicle</div>
+      </div>
+      <div class="fld"><label>Name</label><input id="fvName" placeholder="Unit Alpha"
+          style="background:var(--s3);border:1px solid var(--border);color:var(--text);padding:9px 12px;border-radius:var(--r2);width:100%" />
+      </div>
+      <div class="fld"><label>Tag / ID</label><input id="fvTag" placeholder="FL-001"
+          style="background:var(--s3);border:1px solid var(--border);color:var(--text);padding:9px 12px;border-radius:var(--r2);width:100%" />
+      </div>
+      <div class="fld"><label>Icon</label><input id="fvIcon" value="🚗"
+          style="background:var(--s3);border:1px solid var(--border);color:var(--text);padding:9px 12px;border-radius:var(--r2);width:60px;font-size:1.3rem" />
+      </div>
+      <button class="btn btn-ghost" style="width:100%;padding:11px" onclick="saveVehicle()">Save</button>
+    </div>
+  </div>
+
+  <!-- CAUSE SHEET -->
+  <div class="ov" id="causeOv" onclick="onOvClick(event,'causeOv')">
+    <div class="sheet">
+      <div class="sheet-hdr">
+        <div class="sheet-title">Add Cause</div>
+      </div>
+      <div class="fld"><label>Name</label><input id="cnName" placeholder="Mechanical Failure"
+          style="background:var(--s3);border:1px solid var(--border);color:var(--text);padding:9px 12px;border-radius:var(--r2);width:100%" />
+      </div>
+      <div class="fld"><label>Icon</label><input id="cnIcon" value="🔧"
+          style="background:var(--s3);border:1px solid var(--border);color:var(--text);padding:9px;border-radius:var(--r2);width:56px;font-size:1.2rem" />
+      </div>
+      <button class="btn btn-ghost" style="width:100%;padding:11px" onclick="saveCause()">Add Cause</button>
+    </div>
+  </div>
+
+  <div class="toast-wrap" id="tw"></div>
+
+  <script>
+    // ─── DATA ─────────────────────────────────────────────
+    const STAGES = ['Bring Up', 'Test Set Up', 'Localization', 'Test Started'];
+    const CAUSE_COLORS = ['#ef4444', '#f59e0b', '#a78bfa', '#60a5fa', '#34d399', '#f472b6', '#fb923c', '#2dd4bf'];
+    const uid = () => Math.random().toString(36).slice(2, 8);
+
+    const S = { vehicles: [], causes: [], sessions: [] };
+    function save() { localStorage.setItem('fl3', JSON.stringify(S)); }
+    function load() { const d = localStorage.getItem('fl3'); if (d) Object.assign(S, JSON.parse(d)); else seed(); }
+
+    function seed() {
+      S.vehicles = [{ id: 'v1', name: 'Unit Alpha', tag: 'FL-001', icon: '🚗' }, { id: 'v2', name: 'Unit Beta', tag: 'FL-002', icon: '🚙' }, { id: 'v3', name: 'Unit Gamma', tag: 'FL-003', icon: '🚕' }];
+      S.causes = [
+        { id: 'c1', name: 'Mechanical Failure', icon: '🔧' },
+        { id: 'c2', name: 'Electrical Issue', icon: '⚡' },
+        { id: 'c3', name: 'Operator Error', icon: '👤' },
+        { id: 'c4', name: 'Software Bug', icon: '🐛' },
+        { id: 'c5', name: 'Weather', icon: '🌧' },
+        { id: 'c6', name: 'Fuel / Charging', icon: '⛽' },
+        { id: 'c7', name: 'Comm Loss', icon: '📡' },
+        { id: 'c8', name: 'Sensor Fault', icon: '📡' },
+      ];
+      // Demo sessions
+      const now = Date.now();
+      for (let i = 0; i < 8; i++) {
+        const vid = S.vehicles[i % 3].id;
+        const ago = (i * 3 + 1) * 24 * 3600000 + Math.random() * 3600000;
+        const stageMs = [8, 15, 20, 45].map(m => (m + Math.random() * 10) * 60000);
+        const stages = STAGES.map((name, j) => ({ name, start: now - ago - stageMs.slice(j).reduce((a, b) => a + b, 0), end: now - ago - stageMs.slice(j + 1).reduce((a, b) => a + b, 0) }));
+        const ints = [];
+        for (let k = 0; k < Math.floor(Math.random() * 4) + 1; k++) {
+          const cid = S.causes[Math.floor(Math.random() * S.causes.length)].id;
+          const dur = (5 + Math.random() * 25) * 60000;
+          ints.push({ id: uid(), causeId: cid, start: now - ago + k * 600000, duration: dur, notes: '' });
+        }
+        S.sessions.push({ id: uid(), vehicleId: vid, started: now - ago, ended: now - ago + 45 * 60000, stages, interruptions: ints, active: false });
+      }
+      save();
+    }
+
+    // ─── ACTIVE SESSION STATE ─────────────────────────────
+    let activeSession = null; // {vehicleId, stageIdx, stageStart, testStart, testMs, interrupting, intStart, interruptions, stages}
+    let ticker = null;
+    let selectedCauseId = null;
+    let editVehicleId = null;
+
+    function getV(id) { return S.vehicles.find(v => v.id === id) || { name: '?', icon: '❓', tag: '' } }
+    function getC(id) { return S.causes.find(c => c.id === id) || { name: 'Unknown', icon: '?' } }
+    function causeColor(id) { const i = S.causes.findIndex(c => c.id === id); return CAUSE_COLORS[i % CAUSE_COLORS.length] }
+
+    // ─── FORMAT ───────────────────────────────────────────
+    function fmtHMS(ms) { if (ms < 0) ms = 0; const h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000), s = Math.floor((ms % 60000) / 1000); return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` }
+    function fmtMS(ms) { if (ms < 0) ms = 0; const m = Math.floor(ms / 60000), s = Math.floor((ms % 60000) / 1000); return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` }
+    function fmtDur(ms) { if (!ms || ms < 0) return '0m'; const h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000); return h > 0 ? `${h}h${m}m` : `${m}m` }
+
+    // ─── PAGES ────────────────────────────────────────────
+    function go(name, el) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById('page-' + name).classList.add('active');
+      document.querySelectorAll('.ntab').forEach(t => t.classList.remove('active'));
+      el.classList.add('active');
+      if (name === 'pareto') renderPareto();
+      if (name === 'log') renderLog();
+      if (name === 'fleet') renderFleet();
+      if (name === 'settings') renderSettings();
+    }
+
+    // ─── VEHICLE SELECT ───────────────────────────────────
+    function buildVehicleSel() {
+      const sel = document.getElementById('vehicleSel');
+      sel.innerHTML = S.vehicles.map(v => `<option value="${v.id}">${v.icon} ${v.name}</option>`).join('');
+    }
+    function onVehicleChange() { if (!activeSession) updateTrackUI(); }
+
+    // ─── TRACK UI ─────────────────────────────────────────
+    function updateTrackUI() {
+      const as = activeSession;
+      const btn = document.getElementById('mainBtn');
+      const nBtn = document.getElementById('nextBtn');
+      const status = document.getElementById('stageStatus');
+
+      // Stage bar
+      const sb = document.getElementById('stageBar');
+      sb.innerHTML = STAGES.map((name, i) => {
+        let cls = 'stage';
+        let timeStr = '';
+        if (as) {
+          if (i < as.stageIdx) { cls += ' done'; const st = as.stages[i]; timeStr = st ? fmtDur(st.end - st.start) : ''; }
+          else if (i === as.stageIdx) { cls += ' active'; timeStr = '...'; }
+        }
+        return `<div class="${cls}">${name}<span class="stage-time">${timeStr}</span></div>`;
+      }).join('');
+
+      if (!as) {
+        btn.textContent = '▶ Start Session'; btn.className = 'main-btn btn-start'; btn.style.display = 'block';
+        nBtn.style.display = 'none';
+        setWatch(0, 'idle');
+        status.textContent = 'Select vehicle and tap Start';
+        document.getElementById('intCard').classList.remove('visible');
+        document.getElementById('swLost').style.display = 'none';
+        updateMiniStats(0, 0, 0);
+        return;
+      }
+
+      const now = Date.now();
+      const stageLabel = STAGES[as.stageIdx];
+      const totalLost = as.interruptions.reduce((a, x) => a + (x.duration || 0), 0);
+      const activeTesting = as.stageIdx === 3 ? Math.max(0, as.testMs + (as.interrupting ? 0 : (now - as.stageStart)) - totalLost) : 0;
+      updateMiniStats(activeTesting, totalLost, as.interruptions.length);
+
+      if (as.interrupting) {
+        const intMs = now - as.intStart;
+        document.getElementById('intCard').classList.add('visible');
+        document.getElementById('intCause').textContent = getC(as.currentCauseId).name;
+        document.getElementById('intTimer').textContent = fmtMS(intMs);
+        const n = as.currentNote || ''; document.getElementById('intNote').textContent = n;
+        btn.textContent = '⏹ Stop & Log Cause'; btn.className = 'main-btn btn-stop';
+        status.textContent = '⛔ Interrupted — testing paused';
+        setWatch(activeTesting, 'paused');
+        const lost = document.getElementById('swLost'); lost.style.display = 'block'; lost.textContent = `−${fmtHMS(totalLost)} lost`;
+      } else {
+        document.getElementById('intCard').classList.remove('visible');
+        if (as.stageIdx === 3) {
+          btn.textContent = '⏹ Stop — Log Interruption'; btn.className = 'main-btn btn-stop';
+          status.textContent = '🟢 Testing Active';
+          setWatch(activeTesting, 'running');
+          const lost = document.getElementById('swLost');
+          if (totalLost > 0) { lost.style.display = 'block'; lost.textContent = `−${fmtHMS(totalLost)} lost`; }
+          else lost.style.display = 'none';
+        } else {
+          btn.textContent = '⏹ Stop Session'; btn.className = 'main-btn btn-stop';
+          status.textContent = `Stage: ${stageLabel} — running`;
+          setWatch(0, 'idle');
+        }
+        nBtn.style.display = as.stageIdx < 3 ? 'block' : 'none';
+        nBtn.textContent = as.stageIdx < 3 ? `Next → ${STAGES[as.stageIdx + 1]}` : '';
+      }
+      document.getElementById('sessionLbl').textContent = `Session ${new Date(as.started).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    }
+
+    function updateMiniStats(activeMs, lostMs, ints) {
+      document.getElementById('sActive').textContent = fmtDur(activeMs) || '0m';
+      document.getElementById('sLost').textContent = fmtDur(lostMs) || '0m';
+      document.getElementById('sInts').textContent = ints;
+    }
+
+    function setWatch(ms, state) {
+      const el = document.getElementById('swTime');
+      const arc = document.getElementById('swArc');
+      el.textContent = fmtHMS(ms);
+      el.className = 'sw-time ' + state;
+      arc.className = 'sw-arc ' + state;
+      // Arc fill (max = 2 hours = 7200000ms)
+      const pct = Math.min(ms / 7200000, 1);
+      const circ = 2 * Math.PI * 100;
+      arc.setAttribute('stroke-dashoffset', circ * (1 - pct));
+    }
+
+    // ─── ACTIONS ──────────────────────────────────────────
+    function mainAction() {
+      if (!activeSession) { startSession(); return; }
+      if (activeSession.stageIdx === 3 && !activeSession.interrupting) { openStopSheet(); return; }
+      if (activeSession.interrupting) { openStopSheet(); return; }
+      endSession();
+    }
+
+    function startSession() {
+      const vid = document.getElementById('vehicleSel').value;
+      if (!vid) { toast('Select a vehicle'); return; }
+      activeSession = {
+        id: uid(), vehicleId: vid, stageIdx: 0,
+        started: Date.now(), stageStart: Date.now(),
+        testMs: 0, interruptions: [], interrupting: false,
+        currentCauseId: null, currentNote: '', intStart: 0,
+        stages: [{ name: STAGES[0], start: Date.now(), end: null }, ...STAGES.slice(1).map(n => ({ name: n, start: null, end: null }))]
+      };
+      startTicker(); updateTrackUI(); toast('Session started — Bring Up');
+    }
+
+    function nextStage() {
+      if (!activeSession) return;
+      const now = Date.now();
+      activeSession.stages[activeSession.stageIdx].end = now;
+      activeSession.stageIdx++;
+      if (activeSession.stageIdx < STAGES.length) {
+        activeSession.stages[activeSession.stageIdx].start = now;
+      }
+      if (activeSession.stageIdx === 3) { activeSession.stageStart = now; activeSession.testMs = 0; }
+      else activeSession.stageStart = now;
+      updateTrackUI(); toast(`→ ${STAGES[activeSession.stageIdx]}`);
+    }
+
+    function openStopSheet() {
+      selectedCauseId = null;
+      const grid = document.getElementById('causeGrid');
+      grid.innerHTML = S.causes.map(c => `<button class="cause-btn" id="cb-${c.id}" onclick="selectCause('${c.id}')">${c.icon} ${c.name}</button>`).join('');
+      document.getElementById('stopNote').value = '';
+      document.getElementById('stopOv').classList.add('open');
+    }
+
+    function selectCause(id) {
+      selectedCauseId = id;
+      document.querySelectorAll('.cause-btn').forEach(b => b.classList.remove('selected'));
+      document.getElementById('cb-' + id)?.classList.add('selected');
+    }
+
+    function confirmStop() {
+      if (!selectedCauseId) { toast('Select a cause'); return; }
+      const as = activeSession;
+      const now = Date.now();
+      const note = document.getElementById('stopNote').value.trim();
+      if (!as.interrupting) {
+        // Start interruption
+        if (as.stageIdx === 3) as.testMs += now - as.stageStart;
+        as.interrupting = true; as.intStart = now; as.currentCauseId = selectedCauseId; as.currentNote = note;
+        toast('Interruption logged — tap Stop again to resume');
+      } else {
+        // End interruption (or log and keep paused)
+        const dur = now - as.intStart;
+        as.interruptions.push({ id: uid(), causeId: selectedCauseId, start: as.intStart, duration: dur, notes: note });
+        as.interrupting = false; as.stageStart = now; as.currentCauseId = null;
+        toast('Resumed ▶');
+      }
+      document.getElementById('stopOv').classList.remove('open');
+      updateTrackUI();
+    }
+
+    function endSession() {
+      if (!activeSession) return;
+      const now = Date.now();
+      const as = activeSession;
+      as.stages[as.stageIdx].end = now;
+      as.ended = now; as.active = false;
+      const totalLost = as.interruptions.reduce((a, x) => a + (x.duration || 0), 0);
+      const testMs = as.stageIdx === 3 ? as.testMs + (now - as.stageStart) - totalLost : 0;
+      as.testMs = Math.max(0, testMs);
+      S.sessions.push({ ...as }); save();
+      activeSession = null;
+      stopTicker(); updateTrackUI();
+      document.getElementById('sessionLbl').textContent = 'Session saved';
+      toast('Session saved ✓');
+    }
+
+    function startTicker() {
+      stopTicker();
+      ticker = setInterval(() => updateTrackUI(), 1000);
+    }
+    function stopTicker() { if (ticker) { clearInterval(ticker); ticker = null; } }
+
+    // ─── PARETO ───────────────────────────────────────────
+    let pChartInst = null;
+    function renderPareto() {
+      const days = document.getElementById('pDateF').value;
+      const vid = document.getElementById('pVehicleF').value;
+      const vs = document.getElementById('pVehicleF');
+      vs.innerHTML = '<option value="">All Vehicles</option>' + S.vehicles.map(v => `<option value="${v.id}">${v.name}</option>`).join('');
+      const cutoff = days === 'all' ? 0 : Date.now() - days * 86400000;
+      const sessions = S.sessions.filter(s => s.ended >= cutoff && (!vid || s.vehicleId === vid));
+      const totals = {};
+      let totalTest = 0, totalLost = 0;
+      sessions.forEach(s => {
+        totalTest += (s.testMs || 0);
+        (s.interruptions || []).forEach(x => {
+          totals[x.causeId] = (totals[x.causeId] || 0) + x.duration;
+          totalLost += x.duration;
+        });
+      });
+      const eff = totalTest + totalLost > 0 ? Math.round(totalTest / (totalTest + totalLost) * 100) : 100;
+      document.getElementById('effPct').textContent = eff + '%';
+      document.getElementById('effPct').style.color = eff >= 80 ? 'var(--green)' : eff >= 60 ? 'var(--amber)' : 'var(--red)';
+      document.getElementById('effSub').textContent = `Active: ${fmtDur(totalTest)} · Lost: ${fmtDur(totalLost)}`;
+      const sorted = Object.entries(totals).sort((a, b) => b[1] - a[1]);
+      const grandTotal = sorted.reduce((a, b) => a + b[1], 0);
+      document.getElementById('paretoTotal').textContent = `Total lost: ${fmtDur(grandTotal)}`;
+      if (!sorted.length) { document.getElementById('paretoRows').innerHTML = '<div class="empty"><div class="empty-ico">📊</div><div class="empty-ttl">No data yet</div><div class="empty-sub">Complete sessions to see the Pareto breakdown.</div></div>'; if (pChartInst) pChartInst.destroy(); return; }
+      let cum = 0;
+      const cumPct = sorted.map(([, v]) => { cum += v; return Math.round(cum / grandTotal * 100); });
+      if (pChartInst) pChartInst.destroy();
+      const ctx = document.getElementById('paretoChart').getContext('2d');
+      pChartInst = new Chart(ctx, {
+        data: {
+          labels: sorted.map(([id]) => getC(id).name), datasets: [
+            { type: 'bar', data: sorted.map(([, v]) => Math.round(v / 60000)), backgroundColor: sorted.map(([id]) => causeColor(id)), borderRadius: 5, borderSkipped: false, yAxisID: 'y' },
+            { type: 'line', data: cumPct, borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,.1)', pointBackgroundColor: '#f59e0b', tension: .3, yAxisID: 'y2', borderWidth: 2, pointRadius: 3 }
+          ]
+        }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#4e5880', font: { size: 9 } }, grid: { display: false } }, y: { ticks: { color: '#4e5880', font: { size: 9 }, callback: v => v + 'm' }, grid: { color: 'rgba(255,255,255,.04)' } }, y2: { position: 'right', min: 0, max: 100, ticks: { color: '#f59e0b', font: { size: 9 }, callback: v => v + '%' }, grid: { display: false } } } }
+      });
+      document.getElementById('paretoRows').innerHTML = sorted.map(([id, ms], i) => {
+        const pct = Math.round(ms / grandTotal * 100);
+        return `<div class="p-row" style="${cumPct[i] >= 80 && (i === 0 || cumPct[i - 1] < 80) ? 'border-left:2px solid var(--amber);padding-left:6px' : ''}">
+      <span class="p-dot" style="background:${causeColor(id)}"></span>
+      <span class="p-name">${getC(id).name}</span>
+      <span class="p-dur">${fmtDur(ms)}</span>
+      <span class="p-pct">${pct}%</span>
+    </div>`;
+      }).join('');
+    }
+
+    // ─── LOG ──────────────────────────────────────────────
+    function renderLog() {
+      const vid = document.getElementById('logVF').value;
+      document.getElementById('logVF').innerHTML = '<option value="">All Vehicles</option>' + S.vehicles.map(v => `<option value="${v.id}">${v.icon} ${v.name}</option>`).join('');
+      const list = S.sessions.filter(s => !vid || s.vehicleId === vid).slice().reverse();
+      if (!list.length) { document.getElementById('logList').innerHTML = '<div class="empty"><div class="empty-ico">📋</div><div class="empty-ttl">No sessions yet</div></div>'; return; }
+      document.getElementById('logList').innerHTML = list.map(s => {
+        const v = getV(s.vehicleId);
+        const lostMs = s.interruptions.reduce((a, x) => a + (x.duration || 0), 0);
+        const testMs = s.testMs || 0;
+        const eff = testMs + lostMs > 0 ? Math.round(testMs / (testMs + lostMs) * 100) : 100;
+        const effCls = eff >= 80 ? 'badge-eff' : eff >= 60 ? 'badge-warn' : 'badge-bad';
+        const stagePills = s.stages.filter(st => st.start && st.end).map(st => `<span class="log-stage-pill">${st.name} ${fmtDur(st.end - st.start)}</span>`).join('');
+        const intRows = (s.interruptions || []).map(x => `<div class="int-row"><span class="int-dot2" style="background:${causeColor(x.causeId)}"></span><span>${getC(x.causeId).name}</span><span style="margin-left:auto;font-size:.72rem;font-family:'JetBrains Mono',monospace">${fmtDur(x.duration)}</span></div>`).join('');
+        return `<div class="log-item">
+      <div class="log-hdr"><span class="log-vehicle">${v.icon} ${v.name}</span><span class="badge ${effCls}">${eff}% eff.</span></div>
+      <div class="log-date" style="font-size:.7rem;color:var(--muted);margin-bottom:6px">${new Date(s.started).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+      <div class="log-stages">${stagePills}</div>
+      <div style="display:flex;gap:12px;font-size:.73rem;margin-bottom:${intRows ? '6px' : '0'}">
+        <span>🟢 ${fmtDur(testMs)} active</span>
+        <span style="color:var(--red)">🔴 ${fmtDur(lostMs)} lost</span>
+        <span style="color:var(--amber)">⚠️ ${s.interruptions.length} interruptions</span>
+      </div>
+      ${intRows ? `<div class="interruptions">${intRows}</div>` : ''}
+    </div>`;
+      }).join('');
+    }
+
+    // ─── FLEET ────────────────────────────────────────────
+    function renderFleet() {
+      const el = document.getElementById('fleetList');
+      if (!S.vehicles.length) { el.innerHTML = '<div class="empty"><div class="empty-ico">🚗</div><div class="empty-ttl">No vehicles added</div></div>'; return; }
+      el.innerHTML = S.vehicles.map(v => {
+        const sessions = S.sessions.filter(s => s.vehicleId === v.id);
+        const lostMs = sessions.reduce((a, s) => a + s.interruptions.reduce((b, x) => b + (x.duration || 0), 0), 0);
+        return `<div class="fleet-card">
+      <div class="fleet-ico">${v.icon}</div>
+      <div class="fleet-info"><div class="fleet-name">${v.name}</div><div class="fleet-meta">${v.tag} · ${sessions.length} sessions · ${fmtDur(lostMs)} lost</div></div>
+      <div class="fleet-actions"><button class="btn btn-ghost btn-sm" onclick="openFleetSheet('${v.id}')">Edit</button><button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="deleteVehicle('${v.id}')">🗑</button></div>
+    </div>`;
+      }).join('');
+    }
+    function openFleetSheet(id = '') { editVehicleId = id; const v = id ? getV(id) : {}; document.getElementById('fvName').value = v.name || ''; document.getElementById('fvTag').value = v.tag || ''; document.getElementById('fvIcon').value = v.icon || '🚗'; document.getElementById('fleetSheetTitle').textContent = id ? 'Edit Vehicle' : 'Add Vehicle'; document.getElementById('fleetOv').classList.add('open'); }
+    function saveVehicle() { const name = document.getElementById('fvName').value.trim(), tag = document.getElementById('fvTag').value.trim(), icon = document.getElementById('fvIcon').value || '🚗'; if (!name) return toast('Enter a name'); if (editVehicleId) { const v = getV(editVehicleId); v.name = name; v.tag = tag; v.icon = icon; } else S.vehicles.push({ id: uid(), name, tag, icon }); save(); closeSheet('fleetOv'); renderFleet(); buildVehicleSel(); toast('Saved'); }
+    function deleteVehicle(id) { if (!confirm('Delete?')) return; S.vehicles = S.vehicles.filter(v => v.id !== id); save(); renderFleet(); }
+
+    // ─── SETTINGS ─────────────────────────────────────────
+    function renderSettings() {
+      document.getElementById('causeList').innerHTML = S.causes.map((c, i) => `<div class="cause-item"><span style="width:10px;height:10px;border-radius:50%;background:${CAUSE_COLORS[i % CAUSE_COLORS.length]};display:inline-block;flex-shrink:0"></span><span style="flex:1;font-size:.83rem;font-weight:600">${c.icon} ${c.name}</span><button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="deleteCause('${c.id}')">🗑</button></div>`).join('');
+    }
+    function openCauseSheet() { document.getElementById('cnName').value = ''; document.getElementById('cnIcon').value = '🔧'; document.getElementById('causeOv').classList.add('open'); }
+    function saveCause() { const name = document.getElementById('cnName').value.trim(), icon = document.getElementById('cnIcon').value || '?'; if (!name) return toast('Enter name'); S.causes.push({ id: uid(), name, icon }); save(); closeSheet('causeOv'); renderSettings(); toast('Added'); }
+    function deleteCause(id) { if (!confirm('Delete?')) return; S.causes = S.causes.filter(c => c.id !== id); save(); renderSettings(); }
+
+    // ─── EXPORT ───────────────────────────────────────────
+    function exportCSV() {
+      const rows = [['Vehicle', 'Date', 'Testing Active (min)', 'Lost (min)', 'Efficiency', 'Interruptions', 'Top Cause']];
+      S.sessions.forEach(s => {
+        const lostMs = s.interruptions.reduce((a, x) => a + (x.duration || 0), 0);
+        const testMs = s.testMs || 0;
+        const eff = testMs + lostMs > 0 ? Math.round(testMs / (testMs + lostMs) * 100) : 100;
+        const top = s.interruptions.length ? getC([...s.interruptions].sort((a, b) => b.duration - a.duration)[0].causeId).name : '—';
+        rows.push([getV(s.vehicleId).name, new Date(s.started).toISOString(), Math.round(testMs / 60000), Math.round(lostMs / 60000), eff + '%', s.interruptions.length, top]);
+      });
+      const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+      const a = document.createElement('a'); a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv); a.download = 'fleetlog_export.csv'; a.click();
+    }
+    function exportJSON() { const a = document.createElement('a'); a.href = 'data:application/json,' + encodeURIComponent(JSON.stringify(S, null, 2)); a.download = 'fleetlog_backup.json'; a.click(); }
+    function importJSON() { const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json'; inp.onchange = e => { const r = new FileReader(); r.onload = ev => { try { Object.assign(S, JSON.parse(ev.target.result)); save(); toast('Imported ✓'); } catch { toast('Invalid file'); } }; r.readAsText(e.target.files[0]); }; inp.click(); }
+    function clearAll() { if (!confirm('Clear ALL data?')) return; S.vehicles = []; S.causes = []; S.sessions = []; save(); toast('Cleared'); }
+
+    // ─── UTILS ────────────────────────────────────────────
+    function closeSheet(id) { document.getElementById(id).classList.remove('open'); }
+    function onOvClick(e, id) { if (e.target.classList.contains('ov')) closeSheet(id); }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('.ov.open').forEach(o => o.classList.remove('open')); });
+    function toast(msg) { const w = document.getElementById('tw'); const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; w.appendChild(t); setTimeout(() => t.remove(), 2200); }
+
+    // ─── INIT ─────────────────────────────────────────────
+    load(); buildVehicleSel(); updateTrackUI();
+  </script>
+</body>
+
+</html>
