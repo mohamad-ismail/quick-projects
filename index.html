@@ -9,6 +9,162 @@
     href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700;800&display=swap"
     rel="stylesheet" />
   <style>
+    /* PHASE BAR */
+    .phase-bar {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin-bottom: 12px;
+      overflow: hidden
+    }
+
+    .phase-pill {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 9px;
+      border-radius: 0;
+      font-size: .63rem;
+      font-weight: 700;
+      flex: 1;
+      justify-content: center;
+      position: relative;
+      transition: all .25s;
+      white-space: nowrap;
+      cursor: default
+    }
+
+    .phase-pill:first-child {
+      border-radius: 8px 0 0 8px
+    }
+
+    .phase-pill:last-child {
+      border-radius: 0 8px 8px 0
+    }
+
+    .phase-pill.ph-done {
+      background: rgba(34, 197, 94, .1);
+      color: #22c55e;
+      border: 1px solid rgba(34, 197, 94, .25)
+    }
+
+    .phase-pill.ph-active {
+      border: 1px solid currentColor;
+      color: var(--active-color, #8b5cf6);
+      background: rgba(139, 92, 246, .08)
+    }
+
+    .phase-pill.ph-upcoming {
+      background: var(--s3);
+      color: var(--muted);
+      border: 1px solid var(--border)
+    }
+
+    .phase-pill+.phase-pill {
+      border-left: none
+    }
+
+    .ph-elapsed {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .6rem;
+      opacity: .8
+    }
+
+    /* PHASE SECTION SUMMARY */
+    .phase-section {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 6px
+    }
+
+    .phase-sec-hdr {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 8px 11px;
+      background: var(--s3)
+    }
+
+    .phase-sec-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0
+    }
+
+    .phase-sec-name {
+      flex: 1;
+      font-size: .78rem;
+      font-weight: 700
+    }
+
+    .phase-sec-time {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .72rem;
+      font-weight: 700;
+      color: var(--muted)
+    }
+
+    .phase-sec-eff {
+      font-size: .62rem;
+      font-weight: 800;
+      padding: 1px 7px;
+      border-radius: 20px;
+      margin-left: 4px
+    }
+
+    .phase-sec-body {
+      padding: 7px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      background: var(--s2)
+    }
+
+    .ph-no-pause {
+      font-size: .7rem;
+      color: var(--muted);
+      font-style: italic;
+      padding: 2px 0
+    }
+
+    .ph-pause-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px
+    }
+
+    .ph-pause-top {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 6px
+    }
+
+    .ph-pause-reason {
+      font-size: .72rem;
+      font-weight: 600;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap
+    }
+
+    .ph-pause-meta {
+      font-size: .65rem;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--muted);
+      flex-shrink: 0
+    }
+
+    /* OLD COMPAT (unused but harmless) */
+    .ps-time {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .68rem;
+      color: var(--muted)
+    }
+
     *,
     *::before,
     *::after {
@@ -1161,19 +1317,26 @@
     let colorIdx = 0, selectedColor = COLORS[0].hex, timers = {}, raf = null, currentRange = 'day';
 
     // ── PERSISTENCE ────────────────────────────────────
+    const DEFAULT_PHASES = ['Bring Up', 'Test', 'Shutdown'];
     function saveTimers() {
       const out = {};
+      const now = Date.now();
       Object.values(timers).forEach(t => {
+        // Snapshot live phase elapsed before saving
+        const phases = t.phases.map((ph, i) => ({
+          name: ph.name, done: ph.done,
+          elapsed: (i === t.currentPhaseIdx && t.state === 'running' && t.phaseStartedAt) ? ph.elapsed + (now - t.phaseStartedAt) : ph.elapsed
+        }));
         out[t.id] = {
           id: t.id, name: t.name, color: t.color, state: t.state === 'stopped' ? 'stopped' : 'idle',
-          elapsed: t.state === 'running' ? Date.now() - t.startedAt : t.elapsed,
+          elapsed: t.state === 'running' ? now - t.startedAt : t.elapsed,
           startedAt: t.state === 'running' ? t.startedAt : null,
-          pausedAt: t.state === 'paused' ? t.pauseStart : null,
-          pauseElapsedOnSave: t.state === 'paused' && t.pauseStart ? Date.now() - t.pauseStart : 0,
           currentReason: t.currentReason,
           pauses: t.pauses, segments: t.segments,
           sessionStart: t.sessionStart, sessionCount: t.sessionCount,
-          history: t.history, savedAt: Date.now()
+          history: t.history, savedAt: now,
+          phases, currentPhaseIdx: t.currentPhaseIdx,
+          phaseStartedAt: t.state === 'running' ? now : null
         };
       });
       localStorage.setItem(TIMERS_KEY, JSON.stringify(out));
@@ -1182,9 +1345,9 @@
       const raw = JSON.parse(localStorage.getItem(TIMERS_KEY) || '{}');
       Object.values(raw).forEach(saved => {
         const now = Date.now();
-        // Reconstruct elapsed: if was running, add time since save
         let elapsed = saved.elapsed || 0;
         if (saved.startedAt) elapsed = now - saved.startedAt;
+        const phases = (saved.phases && saved.phases.length) ? saved.phases : DEFAULT_PHASES.map(n => ({ name: n, elapsed: 0, done: false }));
         timers[saved.id] = {
           id: saved.id, name: saved.name, color: saved.color,
           state: saved.startedAt ? 'running' : saved.state || 'idle',
@@ -1192,22 +1355,22 @@
           pauseStart: null, currentReason: saved.currentReason || '',
           pauses: saved.pauses || [], segments: saved.segments || [],
           sessionStart: saved.sessionStart, sessionCount: saved.sessionCount || 0,
-          history: saved.history || []
+          history: saved.history || [],
+          phases, currentPhaseIdx: saved.currentPhaseIdx || 0,
+          phaseStartedAt: saved.startedAt ? now : null
         };
         document.getElementById('emptyState')?.remove();
         renderCard(saved.id);
         if (saved.startedAt) {
-          // was running — show it as running
           document.getElementById('dot_' + saved.id).classList.add('pulse');
           document.getElementById('card_' + saved.id).style.boxShadow = `0 0 0 1px rgba(${hr(saved.color)},.3),0 8px 40px rgba(${hr(saved.color)},.12)`;
           updateBadge(saved.id);
+          updateControls(saved.id);
           toast('⏱ Resumed: ' + saved.name);
         }
-        if (saved.state === 'stopped') {
-          // re-render summary for stopped timers
-          renderSummary(saved.id);
-        }
+        if (saved.state === 'stopped') renderSummary(saved.id);
         updateLiveLog(saved.id);
+        updatePhaseBar(saved.id);
       });
     }
     const LS_KEY = 'ticks_sessions_v1';
@@ -1244,7 +1407,8 @@
     function createStopwatch() {
       const name = document.getElementById('swName').value.trim() || 'Timer ' + (Object.keys(timers).length + 1);
       const id = 'sw_' + Date.now();
-      timers[id] = { id, name, color: selectedColor, state: 'idle', elapsed: 0, startedAt: null, pauseStart: null, currentReason: '', pauses: [], segments: [], sessionStart: null, sessionCount: 0, history: [] };
+      const defaultPhases = ['Bring Up', 'Test', 'Shutdown'];
+      timers[id] = { id, name, color: selectedColor, state: 'idle', elapsed: 0, startedAt: null, pauseStart: null, currentReason: '', pauses: [], segments: [], sessionStart: null, sessionCount: 0, history: [], phases: defaultPhases.map(n => ({ name: n, elapsed: 0, done: false })), currentPhaseIdx: 0, phaseStartedAt: null };
       document.getElementById('swName').value = '';
       toggleAddForm();
       document.getElementById('emptyState')?.remove();
@@ -1269,6 +1433,7 @@
       </div>
       <button class="sw-delete" onclick="deleteTimer('${id}')">✕</button>
     </div>
+    <div class="phase-bar" id="phasebar_${id}"></div>
     <div class="arc-wrap">
       <svg class="arc-svg" viewBox="0 0 150 150">
         <circle class="arc-track" cx="75" cy="75" r="65"/>
@@ -1298,6 +1463,7 @@
         oninput="timers['${id}'].currentReason=this.value"/>
     </div>
     <div class="controls" id="ctrl_${id}"></div>`;
+      updatePhaseBar(id);
       document.getElementById('grid').appendChild(card);
       card.style.boxShadow = `0 0 0 1px rgba(${hr(t.color)},.12)`;
       updateControls(id);
@@ -1307,16 +1473,48 @@
     function startTimer(id) {
       const t = timers[id];
       if (t.state === 'stopped') return;
-      if (t.state === 'idle') { t.sessionStart = Date.now(); t.sessionCount++; }
+      if (t.state === 'idle') { t.sessionStart = Date.now(); t.sessionCount++; t.phaseStartedAt = Date.now(); }
       t.state = 'running'; t.startedAt = Date.now() - t.elapsed;
       t.segments.push({ type: 'active', start: Date.now(), end: null });
-      updateControls(id); updateBadge(id);
+      updateControls(id); updateBadge(id); updatePhaseBar(id);
       document.getElementById('dot_' + id).classList.add('pulse');
       document.getElementById('dot_' + id).style.background = t.color;
       document.getElementById('scount_' + id).textContent = 'S' + t.sessionCount;
       const card = document.getElementById('card_' + id);
       card.style.boxShadow = `0 0 0 1px rgba(${hr(t.color)},.3),0 8px 40px rgba(${hr(t.color)},.12)`;
       saveTimers();
+    }
+
+    function advancePhase(id) {
+      const t = timers[id];
+      if (t.state !== 'running') return;
+      const now = Date.now();
+      // Commit current phase elapsed
+      if (t.phaseStartedAt) t.phases[t.currentPhaseIdx].elapsed += now - t.phaseStartedAt;
+      t.phases[t.currentPhaseIdx].done = true;
+      if (t.currentPhaseIdx < t.phases.length - 1) {
+        t.currentPhaseIdx++;
+        t.phaseStartedAt = now;
+      }
+      updatePhaseBar(id);
+      updateControls(id);
+      saveTimers();
+      toast('Phase: ' + t.phases[t.currentPhaseIdx].name);
+    }
+
+    function updatePhaseBar(id) {
+      const t = timers[id];
+      const el = document.getElementById('phasebar_' + id);
+      if (!el) return;
+      el.innerHTML = t.phases.map((ph, i) => {
+        const isActive = i === t.currentPhaseIdx && (t.state === 'running' || t.state === 'paused');
+        const isDone = ph.done;
+        const cls = isDone ? 'ph-done' : isActive ? 'ph-active' : 'ph-upcoming';
+        const icon = isDone ? '✓' : isActive ? '●' : '';
+        const timeStr = (isDone || isActive) && ph.elapsed > 0 ? `<span class="ph-elapsed">${fmtShort(ph.elapsed)}</span>` : '';
+        const style = isActive ? `style="--active-color:${t.color};border-color:${t.color};background:rgba(${hr(t.color)},.1);color:${t.color}"` : '';
+        return `<div class="phase-pill ${cls}" ${style}>${icon ? icon + ' ' : ''}${esc(ph.name)}${timeStr}</div>`;
+      }).join('');
     }
     function pauseTimer(id) {
       const t = timers[id]; if (t.state !== 'running') return;
@@ -1336,7 +1534,7 @@
       const dur = Date.now() - t.pauseStart;
       const last = t.segments[t.segments.length - 1];
       if (last) { last.end = Date.now(); last.reason = t.currentReason || 'Unspecified'; }
-      t.pauses.push({ duration: dur, reason: t.currentReason || 'Unspecified' });
+      t.pauses.push({ duration: dur, reason: t.currentReason || 'Unspecified', phaseIdx: t.currentPhaseIdx, phaseName: t.phases[t.currentPhaseIdx]?.name || '' });
       t.state = 'running'; t.startedAt = Date.now() - t.elapsed; t.pauseStart = null;
       t.segments.push({ type: 'active', start: Date.now(), end: null });
       document.getElementById('pb_' + id).classList.remove('visible');
@@ -1347,24 +1545,28 @@
     }
     function stopTimer(id) {
       const t = timers[id]; if (t.state === 'idle' || t.state === 'stopped') return;
+      const now = Date.now();
       if (t.state === 'paused') {
-        const dur = Date.now() - t.pauseStart;
+        const dur = now - t.pauseStart;
         const last = t.segments[t.segments.length - 1];
-        if (last) { last.end = Date.now(); last.reason = t.currentReason || 'Unspecified'; }
-        t.pauses.push({ duration: dur, reason: t.currentReason || 'Unspecified' });
+        if (last) { last.end = now; last.reason = t.currentReason || 'Unspecified'; }
+        t.pauses.push({ duration: dur, reason: t.currentReason || 'Unspecified', phaseIdx: t.currentPhaseIdx, phaseName: t.phases[t.currentPhaseIdx]?.name || '' });
       } else {
-        t.elapsed = Date.now() - t.startedAt;
-        const last = t.segments[t.segments.length - 1]; if (last) last.end = Date.now();
+        t.elapsed = now - t.startedAt;
+        const last = t.segments[t.segments.length - 1]; if (last) last.end = now;
       }
+      // Commit current phase elapsed
+      if (t.phaseStartedAt && t.state === 'running') t.phases[t.currentPhaseIdx].elapsed += now - t.phaseStartedAt;
+      t.phaseStartedAt = null;
       t.state = 'stopped';
       document.getElementById('pb_' + id).classList.remove('visible');
       document.getElementById('dot_' + id).classList.remove('pulse');
       const pausedMs = t.pauses.reduce((a, p) => a + p.duration, 0);
-      const sessionData = { timerId: id, timerName: t.name, timerColor: t.color, sessionId: 'ses_' + Date.now(), startTime: t.sessionStart || Date.now() - t.elapsed, endTime: Date.now(), totalMs: t.elapsed, pausedMs, activeMs: Math.max(0, t.elapsed - pausedMs), pauses: [...t.pauses] };
+      const sessionData = { timerId: id, timerName: t.name, timerColor: t.color, sessionId: 'ses_' + Date.now(), startTime: t.sessionStart || Date.now() - t.elapsed, endTime: now, totalMs: t.elapsed, pausedMs, activeMs: Math.max(0, t.elapsed - pausedMs), pauses: [...t.pauses], phases: t.phases.map(p => ({ name: p.name, elapsed: p.elapsed })) };
       t.history.push(sessionData);
       saveSession(sessionData);
       updateLiveLog(id);
-      updateControls(id); updateBadge(id);
+      updateControls(id); updateBadge(id); updatePhaseBar(id);
       document.getElementById('card_' + id).style.boxShadow = `0 0 0 1px rgba(239,68,68,.2)`;
       renderSummary(id);
       saveTimers();
@@ -1373,9 +1575,11 @@
       const t = timers[id];
       t.state = 'idle'; t.elapsed = 0; t.startedAt = null; t.pauseStart = null; t.currentReason = '';
       t.pauses = []; t.segments = []; t.sessionStart = null;
+      t.phases = t.phases.map(ph => ({ name: ph.name, elapsed: 0, done: false }));
+      t.currentPhaseIdx = 0; t.phaseStartedAt = null;
       document.getElementById('pb_' + id).classList.remove('visible');
       const old = document.getElementById('sum_' + id); if (old) old.remove();
-      updateControls(id); updateBadge(id);
+      updateControls(id); updateBadge(id); updatePhaseBar(id);
       document.getElementById('dot_' + id).style.background = t.color;
       document.getElementById('card_' + id).style.boxShadow = `0 0 0 1px rgba(${hr(t.color)},.12)`;
       updateLiveLog(id);
@@ -1396,11 +1600,14 @@
     function updateControls(id) {
       const t = timers[id];
       const el = document.getElementById('ctrl_' + id);
+      const hasNextPhase = t.currentPhaseIdx < t.phases.length - 1;
+      const nextPhaseName = hasNextPhase ? t.phases[t.currentPhaseIdx + 1].name : '';
+      const nextPhaseBtn = hasNextPhase ? `<button class="ctrl-btn" style="background:rgba(${hr(t.color)},.12);border:1px solid rgba(${hr(t.color)},.3);color:${t.color}" onclick="advancePhase('${id}')">→ ${esc(nextPhaseName)}</button>` : '';
       const m = {
         idle: `<button class="ctrl-btn ctrl-start" onclick="startTimer('${id}')">▶ Start</button>`,
-        running: `<button class="ctrl-btn ctrl-pause" onclick="pauseTimer('${id}')">⏸ Pause</button><button class="ctrl-btn ctrl-stop" onclick="stopTimer('${id}')">⏹ Stop</button>`,
+        running: `<button class="ctrl-btn ctrl-pause" onclick="pauseTimer('${id}')">⏸ Pause</button>${nextPhaseBtn}<button class="ctrl-btn ctrl-stop" onclick="stopTimer('${id}')">⏹ Stop</button>`,
         paused: `<button class="ctrl-btn ctrl-resume" onclick="resumeTimer('${id}')">▶ Resume</button><button class="ctrl-btn ctrl-stop" onclick="stopTimer('${id}')">⏹ Stop</button>`,
-        stopped: `<button class="ctrl-btn ctrl-new" onclick="restartTimer('${id}')">▶ New Session</button><button class="ctrl-btn ctrl-stop" style="opacity:.35;cursor:default" disabled>⏹ Stopped</button>`,
+        stopped: `<button class="ctrl-btn ctrl-new" onclick="restartTimer('${id}')">▶ New Session</button>`,
       };
       el.innerHTML = m[t.state] || m.idle;
     }
@@ -1450,7 +1657,7 @@
         const stEl = document.getElementById('stat_' + t.id);
         if (tEl) tEl.textContent = fmtHMS(elapsed);
         if (mEl) mEl.textContent = '.' + String(Math.floor((elapsed % 1000) / 10)).padStart(2, '0');
-        if (stEl) { stEl.textContent = t.state.toUpperCase(); stEl.style.color = t.state === 'running' ? t.color : t.state === 'paused' ? '#f59e0b' : t.state === 'stopped' ? '#ef4444' : 'var(--muted)'; }
+        if (stEl) { stEl.textContent = t.state === 'running' ? t.phases[t.currentPhaseIdx]?.name?.toUpperCase() || 'RUNNING' : t.state.toUpperCase(); stEl.style.color = t.state === 'running' ? t.color : t.state === 'paused' ? '#f59e0b' : t.state === 'stopped' ? '#ef4444' : 'var(--muted)'; }
         // Arc
         const circ = 2 * Math.PI * 65;
         const arc = document.getElementById('arc_' + t.id);
@@ -1460,6 +1667,11 @@
         // Total paused
         const pt = document.getElementById('ptotal_' + t.id);
         if (pt) { const run = t.state === 'paused' && t.pauseStart ? now - t.pauseStart : 0; pt.textContent = fmtShort(t.pauses.reduce((a, p) => a + p.duration, 0) + run); }
+        // Live phase elapsed in pill
+        if (t.state === 'running' && t.phaseStartedAt) {
+          const livePhaseEl = document.querySelector(`#phasebar_${t.id} .ph-active .ph-elapsed`);
+          if (livePhaseEl) livePhaseEl.textContent = fmtShort(t.phases[t.currentPhaseIdx].elapsed + (now - t.phaseStartedAt));
+        }
         // Seg bar
         if (t.state === 'running' || t.state === 'paused') updateSegBar(t.id, now);
       });
@@ -1471,21 +1683,55 @@
     // ── SUMMARY ───────────────────────────────────────
     function renderSummary(id) {
       const t = timers[id];
-      const totalMs = t.elapsed, pausedMs = t.pauses.reduce((a, p) => a + p.duration, 0), activeMs = Math.max(0, totalMs - pausedMs);
+      const totalMs = t.elapsed;
+      const pausedMs = t.pauses.reduce((a, p) => a + p.duration, 0);
+      const activeMs = Math.max(0, totalMs - pausedMs);
       const eff = totalMs > 0 ? Math.round(activeMs / totalMs * 100) : 100;
       const effCls = eff >= 80 ? 'eff-hi' : eff >= 50 ? 'eff-mid' : 'eff-lo';
-      const grouped = {};
-      t.pauses.forEach(p => { const k = p.reason || 'Unspecified'; grouped[k] = (grouped[k] || 0) + p.duration; });
-      const sorted = Object.entries(grouped).sort((a, b) => b[1] - a[1]);
-      const maxP = sorted.length ? sorted[0][1] : 1;
-      const bHtml = sorted.length === 0 ? `<div style="font-size:.73rem;color:var(--muted);text-align:center;padding:6px">No pauses 🎉</div>` :
-        `<div class="breakdown-title">Pause Breakdown — longest first</div>` +
-        sorted.map(([r, ms], i) => {
-          const pct = totalMs > 0 ? Math.round(ms / totalMs * 100) : 0;
-          const bp = Math.round(ms / maxP * 100);
-          const bc = i === 0 ? '#ef4444' : i === 1 ? '#f97316' : '#f59e0b';
-          return `<div class="br-item"><div class="br-top"><span class="br-reason">${i === 0 ? '🔴 ' : i === 1 ? '🟠 ' : '⚪ '}${esc(r)}</span><span class="br-meta">${fmtHMS(ms)} · ${pct}%</span></div><div class="br-bar-bg"><div class="br-bar" style="width:0%;background:${bc}" data-w="${bp}"></div></div></div>`;
-        }).join('');
+
+      // Build per-phase sections with their own pause breakdowns
+      const phaseSectionsHtml = t.phases.map((ph, idx) => {
+        if (ph.elapsed === 0 && !t.pauses.some(p => p.phaseIdx === idx)) return '';
+        const phasePauses = t.pauses.filter(p => p.phaseIdx === idx);
+        const phasePausedMs = phasePauses.reduce((a, p) => a + p.duration, 0);
+        const phaseActiveMs = Math.max(0, ph.elapsed - phasePausedMs);
+        const phEff = ph.elapsed > 0 ? Math.round(phaseActiveMs / ph.elapsed * 100) : 100;
+        const phEffCls = phEff >= 80 ? 'eff-hi' : phEff >= 50 ? 'eff-mid' : 'eff-lo';
+        const dotColor = ph.done ? '#22c55e' : t.color;
+
+        // Group this phase's pauses by reason, sorted by duration
+        const grouped = {};
+        phasePauses.forEach(p => { const k = p.reason || 'Unspecified'; grouped[k] = (grouped[k] || 0) + p.duration; });
+        const sorted = Object.entries(grouped).sort((a, b) => b[1] - a[1]);
+        const maxP = sorted.length ? sorted[0][1] : 1;
+
+        const pauseRowsHtml = sorted.length === 0
+          ? `<div class="ph-no-pause">✓ No interruptions during this phase</div>`
+          : sorted.map(([r, ms], i) => {
+            const pct = ph.elapsed > 0 ? Math.round(ms / ph.elapsed * 100) : 0;
+            const bp = Math.round(ms / maxP * 100);
+            const bc = i === 0 ? '#ef4444' : i === 1 ? '#f97316' : '#f59e0b';
+            const icon = i === 0 ? '🔴' : i === 1 ? '🟠' : '⚪';
+            return `<div class="ph-pause-item">
+                <div class="ph-pause-top">
+                  <span class="ph-pause-reason">${icon} ${esc(r)}</span>
+                  <span class="ph-pause-meta">${fmtShort(ms)} · ${pct}% of phase</span>
+                </div>
+                <div class="br-bar-bg"><div class="br-bar" style="width:0%;background:${bc}" data-w="${bp}"></div></div>
+              </div>`;
+          }).join('');
+
+        return `<div class="phase-section">
+          <div class="phase-sec-hdr">
+            <div class="phase-sec-dot" style="background:${dotColor}"></div>
+            <span class="phase-sec-name">${esc(ph.name)}</span>
+            <span class="phase-sec-time">${fmtHMS(ph.elapsed)}</span>
+            ${ph.elapsed > 0 ? `<span class="phase-sec-eff ${phEffCls}">${phEff}%</span>` : ''}
+          </div>
+          <div class="phase-sec-body">${pauseRowsHtml}</div>
+        </div>`;
+      }).join('');
+
       const el = document.createElement('div');
       el.className = 'summary'; el.id = 'sum_' + id;
       el.innerHTML = `<div class="summary-hdr">Session #${t.sessionCount} Summary<span class="eff-pill ${effCls}">${eff}% active</span></div>
@@ -1493,7 +1739,9 @@
       <div class="sum-stat"><div class="sum-n">${fmtHMS(totalMs)}</div><div class="sum-l">Total</div></div>
       <div class="sum-stat"><div class="sum-n" style="color:#22c55e">${fmtHMS(activeMs)}</div><div class="sum-l">Active</div></div>
       <div class="sum-stat"><div class="sum-n" style="color:#f59e0b">${fmtHMS(pausedMs)}</div><div class="sum-l">Paused</div></div>
-    </div>${bHtml}`;
+    </div>
+    <div class="breakdown-title" style="margin:8px 0 6px">Phase Breakdown</div>
+    ${phaseSectionsHtml}`;
       const card = document.getElementById('card_' + id);
       document.getElementById('sum_' + id)?.remove();
       card.appendChild(el);
